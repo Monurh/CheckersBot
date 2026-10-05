@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>KrWorker</RootNamespace>
+    <!-- Kingsrow64.dll is a 64-bit DLL, so the worker must run as a 64-bit process. -->
+    <PlatformTarget>x64</PlatformTarget>
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Checkers.Core\Checkers.Core.csproj" />
+  </ItemGroup>
+
+</Project>

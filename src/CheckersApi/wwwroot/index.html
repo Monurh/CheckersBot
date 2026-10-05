@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkers Bot Test Board</title>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --panel: #ffffff;
+    --ink: #1f1d1a;
+    --muted: #6d675e;
+    --line: #ddd6c8;
+    --light-sq: #ecd9b4;
+    --dark-sq: #8a5a36;
+    --sel: #f2c14e;
+    --target: #6fbf73;
+    --black-piece: #23201d;
+    --white-piece: #f7f3ea;
+    --ok: #2e7d32;
+    --bad: #c62828;
+    --accent: #3d5a80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 650; }
+  .pill {
+    padding: 3px 10px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--muted);
+  }
+  .pill.ok { color: var(--ok); border-color: #b9dcbb; background: #eef7ee; }
+  .pill.bad { color: var(--bad); border-color: #f0b8b8; background: #fdeeee; }
+  main {
+    display: grid; grid-template-columns: minmax(280px, 560px) minmax(300px, 1fr);
+    gap: 20px; padding: 20px; max-width: 1200px; margin: 0 auto;
+  }
+  main > * { min-width: 0; }
+  @media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); padding: 12px 16px; } }
+
+  .board-wrap { display: flex; flex-direction: column; gap: 10px; }
+  .board {
+    display: grid; grid-template-columns: repeat(8, 1fr); aspect-ratio: 1;
+    border: 6px solid #5b3a22; border-radius: 6px; user-select: none; width: 100%;
+  }
+  .sq { position: relative; display: flex; align-items: center; justify-content: center; }
+  .sq.light { background: var(--light-sq); }
+  .sq.dark { background: var(--dark-sq); cursor: pointer; }
+  .sq .num { position: absolute; top: 2px; left: 4px; font-size: 10px; color: #e8d6c0; opacity: .85; }
+  .sq.sel { box-shadow: inset 0 0 0 4px var(--sel); }
+  .sq.target::after {
+    content: ""; width: 26%; height: 26%; border-radius: 50%; background: var(--target); opacity: .9;
+  }
+  .sq.last { box-shadow: inset 0 0 0 3px rgba(255,255,255,.45); }
+  .piece {
+    width: 76%; height: 76%; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: clamp(12px, 3vw, 22px);
+    box-shadow: 0 3px 0 rgba(0,0,0,.35), inset 0 -4px 0 rgba(0,0,0,.18);
+  }
+  .piece.b { background: var(--black-piece); color: #f2c14e; border: 2px solid #4a443d; }
+  .piece.w { background: var(--white-piece); color: #8a5a36; border: 2px solid #c9bfae; }
+  .turn { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
+  }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row + .row { margin-top: 8px; }
+  label { color: var(--muted); font-size: 12px; }
+  input, select, button {
+    font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; background: #fff; color: var(--ink);
+  }
+  input.fen { flex: 1 1 260px; min-width: 0; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+  input.num { width: 78px; }
+  button { cursor: pointer; background: #f8f6f1; }
+  button:hover { border-color: #b8ad99; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .55; cursor: default; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; word-break: break-word; }
+  pre {
+    margin: 0; max-height: 260px; overflow: auto; background: #faf8f4; border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px; font-size: 12px;
+  }
+  .moves { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; max-height: 140px; overflow: auto; }
+  .msg { min-height: 1.4em; font-size: 13px; }
+  .msg.err { color: var(--bad); }
+  table.checks { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.checks td { padding: 4px 6px; border-top: 1px solid var(--line); vertical-align: top; }
+  .pass { color: var(--ok); font-weight: 600; }
+  .skip { color: var(--muted); font-weight: 600; }
+  .fail { color: var(--bad); font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Checkers Bot · test board</h1>
+  <span id="health" class="pill">checking…</span>
+  <span id="engineName" class="pill" hidden></span>
+</header>
+
+<main>
+  <section class="board-wrap">
+    <div id="board" class="board" aria-label="Checkers board"></div>
+    <div class="turn">
+      <span id="turn"></span>
+      <span>
+        <button id="flipBtn" title="Flip the board">Flip</button>
+        <button id="undoBtn">Undo</button>
+      </span>
+    </div>
+    <div id="msg" class="msg"></div>
+  </section>
+
+  <section class="stack">
+    <div class="panel">
+      <h2>Position</h2>
+      <div class="row">
+        <input id="fen" class="fen" spellcheck="false" aria-label="PDN FEN">
+        <button id="loadBtn">Load</button>
+      </div>
+      <div class="row">
+        <button id="startBtn">Start position</button>
+        <button id="specBtn" title="The example position from the specification">Spec example</button>
+        <button id="tbBtn" title="A 6-piece endgame from the databases">Endgame</button>
+        <button id="copyBtn">Copy FEN</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Engine</h2>
+      <div class="row">
+        <label for="level">Level</label>
+        <select id="level">
+          <option>weak</option><option selected>medium</option><option>strong</option>
+        </select>
+        <label for="soft">soft ms</label><input id="soft" class="num" type="number" min="1" placeholder="level">
+        <label for="hard">hard ms</label><input id="hard" class="num" type="number" min="1" placeholder="1200">
+        <label for="depth">depth</label><input id="depth" class="num" type="number" min="1" placeholder="level">
+      </div>
+      <div class="row">
+        <label for="mode">Engine plays</label>
+        <select id="mode">
+          <option value="white" selected>White (you play Black)</option>
+          <option value="black">Black (you play White)</option>
+          <option value="none">Nobody (move both sides)</option>
+        </select>
+        <button id="engineBtn" class="primary">Engine move</button>
+        <button id="autoBtn">Engine vs engine</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Last engine answer</h2>
+      <dl>
+        <dt>bestMove</dt><dd id="rBest">–</dd>
+        <dt>pv</dt><dd id="rPv">–</dd>
+        <dt>scoreOrWDL</dt><dd id="rScore">–</dd>
+        <dt>depth / nodes</dt><dd id="rDepth">–</dd>
+        <dt>tablebaseHit</dt><dd id="rTb">–</dd>
+        <dt>timeMs (server / round trip)</dt><dd id="rTime">–</dd>
+      </dl>
+      <details style="margin-top:10px">
+        <summary>Raw JSON</summary>
+        <pre id="raw">–</pre>
+      </details>
+    </div>
+
+    <div class="panel">
+      <h2>Validate a move</h2>
+      <div class="row">
+        <input id="valMove" placeholder="e.g. 11-15 or 9x18x27" style="flex:1 1 160px">
+        <button id="valBtn">Check</button>
+        <span id="valOut"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Moves played</h2>
+      <div id="moves" class="moves">–</div>
+    </div>
+
+    <div class="panel">
+      <h2>Acceptance checks</h2>
+      <div class="row"><button id="checksBtn">Run checks</button><span id="checksNote" class="msg"></span></div>
+      <table class="checks" id="checks"></table>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+const START = "B:W21,22,23,24,25,26,27,28,29,30,31,32:B1,2,3,4,5,6,7,8,9,10,11,12";
+const SPEC = "B:W18,19,22,25,27,28,30,32:B1,5,6,7,10,12,14,16";
+const ENDGAME = "W:WK19,K23,30:B1,5,K12";
+// Positions for the acceptance checks; a different one is used on each run so the cache does not answer.
+const TB_POSITIONS = [
+  "W:WK19,K23,30:B1,5,K12", "B:WK2,12,26,27,29:B8,14,19", "W:W9,19,20:B8,11,12,16,K21",
+  "B:W7,K10,20,24:B4,K21,K26,K32", "B:WK4,K10,15,27:B12,K21,K31", "B:W8,K12,23,K30:B1,3,13",
+  "W:W25,26,27,28:B1,2,3,4", "B:W21,25,30:B3,7,11", "B:WK27,28:B1,3,4,K13,20,K29",
+];
+// Middlegames with several legal moves; the first five are outside the opening book (used for the timeout check).
+const MID_POSITIONS = [
+  "B:W13,21,23,27,29,31,32:B1,4,5,6,7,12", "B:W15,24,25,28,29,31,32:B3,4,5,6,7,8",
+  "W:W21,25,27,28,29,30,31:B3,5,7,9,10,12,18", "W:W12,22,26,30,31:B3,4,5,7,13,17,20,21",
+  "W:W19,22,23,27,28,29:B3,6,8,10,11,12,20,K30", "W:WK1,20,21,23,25,27,29,30,32:B4,5,6,8,9,10,12",
+  "B:W18,22,25,26,27,29,30:B1,3,6,7,9,10,12", "W:W18,22,23,24,25,26,27,28,29,30,31:B1,2,3,4,5,6,7,8,9,11,12,15",
+];
+let checkRun = Math.floor(Math.random() * 1000); // vary positions between page loads too
+
+const $ = (id) => document.getElementById(id);
+const state = { fen: START, legal: [], gameOver: false, selected: null, flipped: false, history: [], played: [], last: null, busy: false, auto: false };
+
+async function call(path, body) {
+  const t0 = performance.now();
+  const res = await fetch(path, body === undefined ? {} : {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+  });
+  let data = null;
+  try { data = await res.json(); } catch { /* empty body */ }
+  return { status: res.status, ms: Math.round(performance.now() - t0), data };
+}
+
+function squareAt(row, col) {
+  if ((row + col) % 2 === 0) return 0;
+  return row * 4 + Math.floor(col / 2) + 1;
+}
+
+function parseFen(fen) {
+  const [stm, ...lists] = fen.split(":");
+  const pieces = {};
+  for (const list of lists) {
+    const color = list[0].toLowerCase();
+    for (const item of list.slice(1).split(",").filter(Boolean)) {
+      const king = item[0] === "K";
+      pieces[+(king ? item.slice(1) : item)] = { color, king };
+    }
+  }
+  return { stm, pieces };
+}
+
+function setMsg(text, isError) {
+  $("msg").textContent = text || "";
+  $("msg").className = "msg" + (isError ? " err" : "");
+}
+
+function render() {
+  const { stm, pieces } = parseFen(state.fen);
+  const board = $("board");
+  board.innerHTML = "";
+  const targets = new Set(state.selected ? state.legal.filter(m => m.from === state.selected).map(m => m.to) : []);
+  const lastSquares = new Set(state.last ? [state.last.from, state.last.to] : []);
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const row = state.flipped ? 7 - r : r, col = state.flipped ? 7 - c : c;
+      const sq = squareAt(row, col);
+      const cell = document.createElement("div");
+      cell.className = "sq " + (sq ? "dark" : "light");
+      if (sq) {
+        cell.dataset.sq = sq;
+        const num = document.createElement("span");
+        num.className = "num"; num.textContent = sq;
+        cell.appendChild(num);
+        const p = pieces[sq];
+        if (p) {
+          const el = document.createElement("div");
+          el.className = "piece " + p.color;
+          el.textContent = p.king ? "♛" : "";
+          cell.appendChild(el);
+        }
+        if (state.selected === sq) cell.classList.add("sel");
+        if (targets.has(sq)) cell.classList.add("target");
+        if (lastSquares.has(sq)) cell.classList.add("last");
+        cell.addEventListener("click", () => onSquare(sq));
+      }
+      board.appendChild(cell);
+    }
+  }
+  const side = stm === "B" ? "Black" : "White";
+  $("turn").textContent = state.gameOver ? `Game over: ${side} has no moves` : `${side} to move`;
+  $("fen").value = state.fen;
+  $("moves").textContent = state.played.length ? state.played.map((m, i) => (i % 2 === 0 ? `${i / 2 + 1}. ` : "") + m).join("  ") : "–";
+}
+
+async function loadPosition(fen, keepHistory) {
+  const r = await call("/v1/position/moves", { position: fen });
+  if (r.status !== 200) { setMsg(r.data?.message || `Error ${r.status}`, true); return false; }
+  if (!keepHistory) { state.history = []; state.played = []; state.last = null; }
+  state.fen = r.data.position;
+  state.legal = r.data.moves;
+  state.gameOver = r.data.gameOver;
+  state.selected = null;
+  render();
+  return true;
+}
+
+function engineSide() { return $("mode").value; }
+function sideToMove() { return parseFen(state.fen).stm === "B" ? "black" : "white"; }
+
+async function onSquare(sq) {
+  if (state.busy || state.gameOver) return;
+  if (state.selected) {
+    const move = state.legal.find(m => m.from === state.selected && m.to === sq);
+    if (move) { await playMove(move.move); return; }
+  }
+  if (state.legal.some(m => m.from === sq)) { state.selected = sq; render(); return; }
+  if (state.legal.length && state.legal[0].captured.length) setMsg("A capture is available: captures are mandatory.");
+  state.selected = null; render();
+}
+
+async function playMove(moveText) {
+  const r = await call("/v1/move/validate", { position: state.fen, move: moveText });
+  if (r.status !== 200) { setMsg(r.data?.message || `Error ${r.status}`, true); return false; }
+  if (!r.data.legal) { setMsg(r.data.reason || "Illegal move", true); return false; }
+  const move = state.legal.find(m => m.move === r.data.move);
+  state.history.push(state.fen);
+  state.played.push(r.data.move);
+  state.last = move ? { from: move.from, to: move.to } : null;
+  setMsg("");
+  await loadPosition(r.data.positionAfter, true);
+  if (!state.auto && engineSide() === sideToMove() && !state.gameOver) await engineMove();
+  return true;
+}
+
+function suggestBody(fen) {
+  const limits = {};
+  const soft = +$("soft").value, hard = +$("hard").value, depth = +$("depth").value;
+  if (soft > 0) limits.softTimeMs = soft;
+  if (hard > 0) limits.hardTimeMs = hard;
+  if (depth > 0) limits.maxDepth = depth;
+  const body = { gameId: "checkers-8x8", state: { notation: "PDN", position: fen }, level: $("level").value };
+  if (Object.keys(limits).length) body.limits = limits;
+  return body;
+}
+
+function showAnswer(r) {
+  $("raw").textContent = JSON.stringify(r.data, null, 2);
+  if (r.status !== 200) {
+    for (const id of ["rBest", "rPv", "rScore", "rDepth", "rTb"]) $(id).textContent = "–";
+    $("rTime").textContent = `HTTP ${r.status} · ${r.ms} ms`;
+    return;
+  }
+  const d = r.data;
+  $("rBest").textContent = d.bestMove ?? "(none)";
+  $("rPv").textContent = d.pv.join(" ") || "–";
+  $("rScore").textContent = d.scoreOrWDL ?? "–";
+  $("rDepth").textContent = `${d.depth} / ${d.nodes.toLocaleString("en")}`;
+  $("rTb").textContent = d.info.tablebaseHit + (d.info.cached ? " (cached)" : "") + (d.info.book ? " (opening book)" : "");
+  $("rTime").textContent = `${d.info.timeMs} ms / ${r.ms} ms`;
+}
+
+async function engineMove() {
+  if (state.gameOver) return false;
+  state.busy = true; setButtons();
+  setMsg("Engine is thinking…");
+  try {
+    const r = await call("/v1/move/suggest", suggestBody(state.fen));
+    showAnswer(r);
+    if (r.status !== 200) { setMsg(r.data?.message || `Error ${r.status}`, true); return false; }
+    if (!r.data.bestMove) { setMsg("No legal moves: game over."); return false; }
+    state.busy = false;
+    return await playMove(r.data.bestMove);
+  } finally {
+    state.busy = false; setButtons();
+  }
+}
+
+async function autoPlay() {
+  if (state.auto) { state.auto = false; setButtons(); return; }
+  state.auto = true; setButtons();
+  let plies = 0;
+  while (state.auto && !state.gameOver && plies < 300) {
+    if (!(await engineMove())) break;
+    plies++;
+    await new Promise(r => setTimeout(r, 150));
+  }
+  state.auto = false; setButtons();
+}
+
+function setButtons() {
+  $("engineBtn").disabled = state.busy || state.auto;
+  $("autoBtn").textContent = state.auto ? "Stop" : "Engine vs engine";
+}
+
+async function validateBox() {
+  const r = await call("/v1/move/validate", { position: state.fen, move: $("valMove").value });
+  $("valOut").textContent = r.status === 200
+    ? (r.data.legal ? `legal: true (${r.data.move})` : `legal: false — ${r.data.reason}`)
+    : `HTTP ${r.status}: ${r.data?.message}`;
+  $("valOut").className = r.status === 200 && r.data.legal ? "pass" : "fail";
+}
+
+async function refreshHealth() {
+  try {
+    const r = await call("/healthz?details=true");
+    const pill = $("health");
+    pill.textContent = r.data ? `${r.data.ok ? "healthy" : "not ready"} · ${r.data.workers}/${r.data.configured} workers` : `HTTP ${r.status}`;
+    pill.className = "pill " + (r.data?.ok ? "ok" : "bad");
+    if (r.data?.engine) {
+      $("engineName").hidden = false;
+      $("engineName").textContent = r.data.engine + (r.data.tablebasePieces ? ` · databases ≤ ${r.data.tablebasePieces} pieces` : " · no databases");
+    }
+  } catch {
+    $("health").textContent = "service unreachable"; $("health").className = "pill bad";
+  }
+}
+
+async function runChecks() {
+  const table = $("checks");
+  table.innerHTML = "";
+  $("checksBtn").disabled = true;
+  const k = checkRun++;
+  const tbFen = TB_POSITIONS[k % TB_POSITIONS.length];
+  const midFen = MID_POSITIONS[k % MID_POSITIONS.length];
+  $("checksNote").textContent = "";
+
+  const add = (name, pass, detail) => {
+    const tr = document.createElement("tr");
+    const cls = pass === null ? "skip" : pass ? "pass" : "fail";
+    const label = pass === null ? "SKIP" : pass ? "PASS" : "FAIL";
+    for (const [text, c] of [[label, cls], [name, ""], [detail, ""]]) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      if (c) td.className = c;
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  };
+
+  let r = await call("/healthz");
+  add("Health check returns ok", r.status === 200 && r.data?.ok === true, `HTTP ${r.status} ${JSON.stringify(r.data)}`);
+
+  const details = (await call("/healthz?details=true")).data;
+  if (!details?.tablebasePieces) {
+    add("≤ 8 pieces: under 50 ms, tablebaseHit true", null, "The engine has no endgame databases (stub engine, or Engine:Databases is empty).");
+  } else {
+    r = await call("/v1/move/suggest", { gameId: "checkers-8x8", state: { notation: "PDN", position: tbFen }, level: "strong" });
+    add("≤ 8 pieces: under 50 ms, tablebaseHit true",
+      r.status === 200 && r.data.info.tablebaseHit === true && r.data.info.timeMs < 50,
+      r.status === 200 ? `${tbFen} → ${r.data.bestMove}, ${r.data.scoreOrWDL}, server ${r.data.info.timeMs} ms, round trip ${r.ms} ms${r.data.info.cached ? ", cached" : ""}` : `HTTP ${r.status}`);
+  }
+
+  r = await call("/v1/move/suggest", { gameId: "checkers-8x8", state: { notation: "PDN", position: midFen }, level: "strong" });
+  let legal = false;
+  if (r.status === 200 && r.data.bestMove) {
+    const v = await call("/v1/move/validate", { position: midFen, move: r.data.bestMove });
+    legal = v.status === 200 && v.data.legal;
+  }
+  add("Midgame, strong: legal move under 600 ms",
+    r.status === 200 && legal && r.data.info.timeMs < 600,
+    r.status === 200 ? `${midFen} → ${r.data.bestMove} (legal: ${legal}), depth ${r.data.depth}, server ${r.data.info.timeMs} ms, round trip ${r.ms} ms${r.data.info.cached ? ", cached" : ""}` : `HTTP ${r.status}`);
+
+  r = await call("/v1/move/suggest", { gameId: "checkers-8x8", state: { notation: "PDN", position: "B:W18,19,33:B1,5" } });
+  add("Invalid PDN gets 422", r.status === 422, `HTTP ${r.status} ${r.data?.message ?? ""}`);
+
+  r = await call("/v1/move/suggest", { gameId: "checkers-8x8", state: { notation: "PDN", position: MID_POSITIONS[(k + 2) % 5] }, limits: { softTimeMs: 3000, hardTimeMs: 100 } });
+  add("Timeout returns 504", r.status === 504, `softTimeMs 3000, hardTimeMs 100 → HTTP ${r.status} in ${r.ms} ms`);
+
+  const v1 = await call("/v1/move/validate", { position: SPEC, move: "14x23" });
+  const v2 = await call("/v1/move/validate", { position: SPEC, move: "10-15" });
+  add("Validate: legal and illegal moves", v1.data?.legal === true && v2.data?.legal === false,
+    `14x23 → ${v1.data?.legal}, 10-15 (ignores the forced capture) → ${v2.data?.legal}`);
+
+  $("checksBtn").disabled = false;
+  refreshHealth();
+}
+
+$("loadBtn").onclick = () => loadPosition($("fen").value.trim());
+$("fen").addEventListener("keydown", e => { if (e.key === "Enter") loadPosition($("fen").value.trim()); });
+$("startBtn").onclick = () => loadPosition(START);
+$("specBtn").onclick = () => loadPosition(SPEC);
+$("tbBtn").onclick = () => loadPosition(ENDGAME);
+$("copyBtn").onclick = () => navigator.clipboard?.writeText(state.fen).then(() => setMsg("FEN copied."));
+$("flipBtn").onclick = () => { state.flipped = !state.flipped; render(); };
+$("undoBtn").onclick = async () => {
+  if (!state.history.length || state.busy) return;
+  const prev = state.history.pop();
+  state.played.pop();
+  state.last = null;
+  await loadPosition(prev, true);
+};
+$("engineBtn").onclick = () => engineMove();
+$("autoBtn").onclick = () => autoPlay();
+$("valBtn").onclick = () => validateBox();
+$("valMove").addEventListener("keydown", e => { if (e.key === "Enter") validateBox(); });
+$("checksBtn").onclick = () => runChecks();
+$("mode").onchange = () => { state.flipped = engineSide() === "black"; render(); };
+
+refreshHealth();
+setInterval(refreshHealth, 10000);
+loadPosition(START);
+</script>
+</body>
+</html>

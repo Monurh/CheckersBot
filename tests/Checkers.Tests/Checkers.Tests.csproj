@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Checkers.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Checkers.Core\Checkers.Core.csproj" />
+    <!-- Not referenced as a library: listed so that the API (and its worker) are built before the API tests run. -->
+    <ProjectReference Include="..\..\src\CheckersApi\CheckersApi.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="perft-reference.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

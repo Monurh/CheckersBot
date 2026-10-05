@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>CheckersApi</RootNamespace>
+    <!-- Hosted in IIS in-process; the engine itself runs in separate KrWorker processes. -->
+    <AspNetCoreHostingModel>InProcess</AspNetCoreHostingModel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Checkers.Core\Checkers.Core.csproj" />
+    <!-- Built alongside so that it can be copied into the worker\ folder; not referenced as a library. -->
+    <ProjectReference Include="..\KrWorker\KrWorker.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+
+  <!-- Copy the worker into <output>\worker after build, so "dotnet run" works out of the box. -->
+  <Target Name="CopyWorkerAfterBuild" AfterTargets="Build">
+    <ItemGroup>
+      <_WorkerFiles Include="$(MSBuildProjectDirectory)\..\KrWorker\bin\$(Configuration)\$(TargetFramework)\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WorkerFiles)" DestinationFolder="$(OutDir)worker\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Publish the worker into <publish>\worker as part of "dotnet publish". -->
+  <Target Name="PublishWorker" AfterTargets="Publish">
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\KrWorker\KrWorker.csproj"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);PublishDir=$([System.IO.Path]::GetFullPath('$(PublishDir)'))worker\;RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);UseAppHost=$(UseAppHost)" />
+  </Target>
+
+</Project>
